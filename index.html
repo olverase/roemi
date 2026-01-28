@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ROEMI | Catálogo</title>
+    <link rel="icon" type="image/png" href="img/logo.png" />
+
+    <link
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+      rel="stylesheet"
+    />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600&family=Nunito:wght@400;700&display=swap"
+      rel="stylesheet"
+    />
+
+    <link rel="stylesheet" href="styles.css" />
+
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+  </head>
+  <body>
+    <div id="app" v-cloak>
+      <header>
+        <div class="header-content">
+          <div class="header-brand">
+            <img src="img/logo.png" alt="Logo ROEMI" class="logo-img" />
+            <h1>ROEMI 🎈</h1>
+          </div>
+
+          <div class="search-box">
+            <i class="fa-solid fa-search"></i>
+            <input
+              type="text"
+              v-model="busqueda"
+              placeholder="Buscar globos, velas..."
+            />
+          </div>
+
+          <div class="cats-nav">
+            <button
+              class="cat-btn"
+              :class="{ active: categoriaActiva === 'Inicio' }"
+              @click="categoriaActiva = 'Inicio'"
+            >
+              <i class="fa-solid fa-star"></i> Inicio
+            </button>
+            <button
+              class="cat-btn"
+              :class="{ active: categoriaActiva === 'Todas' }"
+              @click="categoriaActiva = 'Todas'"
+            >
+              Catálogo Completo
+            </button>
+            <button
+              v-for="cat in categoriasUnicas"
+              :key="cat"
+              class="cat-btn"
+              :class="{ active: categoriaActiva === cat }"
+              @click="categoriaActiva = cat"
+            >
+              {{ cat }}
+            </button>
+          </div>
+        </div>
+      </header>
+
+      <div class="container">
+        <div v-if="cargando" class="status">
+          <i class="fa-solid fa-spinner fa-spin"></i>
+          <p>Cargando catálogo...</p>
+        </div>
+
+        <div v-else-if="error" class="status">
+          <i class="fa-solid fa-triangle-exclamation"></i>
+          <p>No pudimos conectar con el catálogo.</p>
+          <small>Verifica la URL en app.js</small>
+        </div>
+
+        <div
+          v-else-if="categoriaActiva === 'Inicio' && !busqueda"
+          class="hero-section"
+        >
+          <div class="section-title">
+            <h3>✨ Lo Más Top de la Fiesta ✨</h3>
+          </div>
+
+          <div class="carousel-container">
+            <button class="nav-btn left" @click="moverCarrusel(-1)">
+              <i class="fa-solid fa-chevron-left"></i>
+            </button>
+
+            <div class="carousel-track" ref="track">
+              <div
+                class="hero-card"
+                v-for="p in productosDestacados"
+                :key="p.sku"
+                @click="verProducto(p)"
+              >
+                <div class="hero-badge">TOP</div>
+                <img
+                  :src="obtenerPortada(p.imagen)"
+                  loading="lazy"
+                />
+                <div class="hero-info">
+                  <h3>{{ p.nombre }}</h3>
+                  <span class="ver-btn">Ver Detalles</span>
+                </div>
+              </div>
+            </div>
+
+            <button class="nav-btn right" @click="moverCarrusel(1)">
+              <i class="fa-solid fa-chevron-right"></i>
+            </button>
+          </div>
+
+          <div class="hero-cta">
+            <p>¿Buscas algo específico?</p>
+            <button class="cta-btn" @click="categoriaActiva = 'Todas'">
+              Ver Todo el Catálogo
+            </button>
+          </div>
+        </div>
+
+        <div v-else class="grid-section">
+          <h3 class="section-header">
+            {{ categoriaActiva === 'Todas' ? 'Catálogo Completo' :
+            categoriaActiva }}
+          </h3>
+
+          <div class="grid">
+            <div
+              class="card"
+              v-for="p in productosFiltrados"
+              :key="p.sku"
+              @click="verProducto(p)"
+            >
+              <div class="card-img-wrapper">
+                <img
+                  :src="obtenerPortada(p.imagen)"
+                  loading="lazy"
+                />
+              </div>
+              <div class="card-body">
+                <div class="card-cat">{{ p.categoria }}</div>
+                <div class="card-title">{{ p.nombre }}</div>
+                <div class="card-sku">{{ p.sku }}</div>
+              </div>
+            </div>
+          </div>
+
+          <div v-if="productosFiltrados.length === 0" class="status">
+            <p>No encontramos productos así 🎈</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-mask" v-if="seleccionado" @click="seleccionado = null">
+        <div class="modal-wrapper" @click.stop>
+          <button class="close-btn" @click="seleccionado = null">✕</button>
+          
+          <div class="modal-main-img-container">
+              <img :src="imgSeleccionada" class="modal-img-main">
+          </div>
+
+          <div class="modal-thumbs" v-if="obtenerListaFotos(seleccionado.imagen).length > 1">
+              <img 
+                  v-for="img in obtenerListaFotos(seleccionado.imagen)" 
+                  :src="img" 
+                  class="thumb-img"
+                  :class="{ active: img === imgSeleccionada }"
+                  @click="imgSeleccionada = img"
+              >
+          </div>
+
+          <div class="modal-info">
+            <span v-if="seleccionado.destacado === 'SI'" class="modal-badge">DESTACADO</span>
+            <h2>{{ seleccionado.nombre }}</h2>
+            <p class="desc">{{ seleccionado.descripcion }}</p>
+            <div class="meta" v-if="seleccionado.colores">
+              <strong>Colores:</strong> {{ seleccionado.colores }}
+            </div>
+            <div class="meta"><strong>SKU:</strong> {{ seleccionado.sku }}</div>
+            <a :href="linkWa" target="_blank" class="btn-wa">
+                <i class="fa-brands fa-whatsapp"></i> Pedir por WhatsApp
+            </a>
+          </div>
+        </div>
+      </div>
+
+      <footer>
+        <div class="footer-container">
+          <div class="footer-info">
+            <h3>Visítanos</h3>
+            <p><i class="fa-brands fa-whatsapp"></i> 55 1234 5678</p>
+            <p>
+              <i class="fa-solid fa-location-dot"></i> Mercado de la Merced,
+              Puerta 26
+            </p>
+            <p>Nave Mayor, Local 3140</p>
+            <p>Merced Balbuena, CP 15810, CDMX</p>
+            <p class="horario">Lun - Dom: 10:00am - 6:00pm</p>
+          </div>
+
+          <div class="footer-map">
+            <iframe
+              src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3762.660424599584!2d-99.12658842407635!3d19.42702954084666!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x85d1fec7649539d9%3A0x62957777c07b660!2sMercado%20de%20la%20Merced!5e0!3m2!1ses-419!2smx!4v1706399000000!5m2!1ses-419!2smx"
+              allowfullscreen=""
+              loading="lazy"
+              referrerpolicy="no-referrer-when-downgrade"
+            >
+            </iframe>
+          </div>
+        </div>
+
+        <div class="footer-copy">© 2026 ROEMI Artículos de Fiesta</div>
+      </footer>
+    </div>
+
+    <script src="app.js"></script>
+  </body>
+</html>
